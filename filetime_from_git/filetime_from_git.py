@@ -5,7 +5,7 @@ import os
 from git import Git, Repo, InvalidGitRepositoryError
 from pelican import signals, contents
 from datetime import datetime
-from time import mktime, altzone
+from time import altzone
 from pelican.utils import strftime, set_date_tzinfo
 
 try:
@@ -45,13 +45,15 @@ def filetime_from_git(content):
         content.date = datetime_from_timestamp(os.stat(path).st_ctime, content)
     else:
         # file is managed by git
-        commits = repo.commits(path=path)
+
+        commits = [commit for commit in repo.iter_commits(paths=path)]
+
         if len(commits) == 0:
             # never commited, but staged
             content.date = datetime_from_timestamp(os.stat(path).st_ctime, content)
         else:
             # has commited
-            content.date = datetime_from_timestamp(mktime(commits[-1].committed_date) - altzone, content)
+            content.date = datetime_from_timestamp(commits[-1].committed_date - altzone, content)
 
             status, stdout, stderr = git.execute(['git', 'diff', '--quiet', 'HEAD', path],
                     with_extended_output=True, with_exceptions=False)
@@ -61,7 +63,7 @@ def filetime_from_git(content):
             else:
                 # file is not changed
                 if len(commits) > 1:
-                    content.modified = datetime_from_timestamp(mktime(commits[0].committed_date) - altzone, content)
+                    content.modified = datetime_from_timestamp(commits[0].committed_date - altzone, content)
     if not hasattr(content, 'modified'):
         content.modified = content.date
     if hasattr(content, 'date'):
